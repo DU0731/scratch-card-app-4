@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧選物店 - 高級大盤輪刮樂 APP</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- QRCode.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        .grid-layout {
+            display: grid;
+            gap: 4px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .scratch-cell {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .prize-layer {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
+            text-align: center;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.2;
+            word-break: break-all;
+        }
+        .canvas-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+            touch-action: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-slate-800/90 backdrop-blur sticky top-0 z-50 border-b border-slate-700">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-wand-magic-sparkles text-amber-400 text-xl"></i>
+                <span class="font-bold text-lg text-white">智慧選物店 - 大盤輪刮樂系統 Pro</span>
+            </div>
+            <div class="flex space-x-2">
+                <button id="btn-view-admin" onclick="switchView('admin')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition bg-amber-500 text-slate-950 font-bold hover:bg-amber-400">
+                    <i class="fa-solid fa-gear mr-1"></i> 店家後台
+                </button>
+                <button id="btn-view-customer" onclick="switchView('customer')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition bg-slate-700 text-slate-200 hover:bg-slate-600">
+                    <i class="fa-solid fa-mobile-screen mr-1"></i> 顧客視角
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6">
+
+        <!-- ================= 後台管理頁面 ================= -->
+        <section id="admin-view" class="space-y-6">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl space-y-6">
+                <h2 class="text-xl font-bold text-amber-400 flex items-center">
+                    <i class="fa-solid fa-sliders mr-2"></i> 活動與大盤客製化參數設定
+                </h2>
+                
+                <!-- 基本與格數設定 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-slate-300">活動名稱</label>
+                        <input type="text" id="cfg-title" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-400" value="🎁 夾物達人專屬幸運大刮刮樂">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-slate-300">總網格數量 (大盤格數)</label>
+                        <select id="cfg-grid-size" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+                            <option value="20">20 格</option>
+                            <option value="40" selected>40 格</option>
+                            <option value="60">60 格</option>
+                            <option value="80">80 格</option>
+                            <option value="100">100 格</option>
+                            <option value="120">120 格</option>
+                            <option value="160">160 格</option>
+                            <option value="200">200 格</option>
+                            <option value="300">300 格</option>
+                            <option value="400">400 格</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-slate-300">換算比例 (幾樣夾物 = 1 刮)</label>
+                        <input type="number" id="cfg-ratio" min="1" max="10" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-400" value="1">
+                    </div>
+                </div>
+
+                <!-- 顏色與視覺風格客製化 -->
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 space-y-4">
+                    <h3 class="text-sm font-bold text-amber-300 flex items-center">
+                        <i class="fa-solid fa-palette mr-2"></i> 刮刮樂視覺色彩樣式選擇
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- 漆色 (5種常見刮刮樂塗層) -->
+                        <div>
+                            <label class="block text-xs font-medium mb-1 text-slate-300">1. 刮刮卡外漆顏色 (5種常見金屬塗層)</label>
+                            <select id="cfg-coat-color" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                                <option value="#94a3b8">經典銀金屬漆 (Silver Metallic)</option>
+                                <option value="#f59e0b">尊爵金屬金 (Luxury Gold)</option>
+                                <option value="#3b82f6">炫彩寶石藍 (Sapphire Blue)</option>
+                                <option value="#10b981">奢華翡翠綠 (Emerald Green)</option>
+                                <option value="#8b5cf6">典雅紫金漆 (Royal Purple)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- 卡片底色 (5種淡色系) -->
+                        <div>
+                            <label class="block text-xs font-medium mb-1 text-slate-300">2. 刮刮卡底色 (5種淡色系背景)</label>
+                            <select id="cfg-bg-color" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                                <option value="#fffbeb">暖陽奶油黃 (#fffbeb)</option>
+                                <option value="#fff1f2">柔和櫻花粉 (#fff1f2)</option>
+                                <option value="#f0f9ff">靜謐天空藍 (#f0f9ff)</option>
+                                <option value="#f0fdf4">薄荷清新綠 (#f0fdf4)</option>
+                                <option value="#ffffff">典雅簡約白 (#ffffff)</option>
+                            </select>
+                        </div>
+
+                        <!-- 中獎字體顏色 (15選擇) -->
+                        <div>
+                            <label class="block text-xs font-medium mb-1 text-slate-300">3. 中獎字體顏色 (15種選擇)</label>
+                            <select id="cfg-win-font-color" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                                <option value="#dc2626">火焰紅 (#dc2626)</option>
+                                <option value="#d97706">璀璨金 (#d97706)</option>
+                                <option value="#0f172a">曜石黑 (#0f172a)</option>
+                                <option value="#2563eb">寶石藍 (#2563eb)</option>
+                                <option value="#16a34a">翡翠綠 (#16a34a)</option>
+                                <option value="#7c3aed">紫羅蘭 (#7c3aed)</option>
+                                <option value="#e11d48">玫瑰粉 (#e11d48)</option>
+                                <option value="#78350f">深深棕 (#78350f)</option>
+                                <option value="#475569">酷炫灰 (#475569)</option>
+                                <option value="#065f46">暗綠色 (#065f46)</option>
+                                <option value="#1e3a8a">深藍色 (#1e3a8a)</option>
+                                <option value="#ea580c">鮮橘色 (#ea580c)</option>
+                                <option value="#9333ea">霓虹紫 (#9333ea)</option>
+                                <option value="#0891b2">海洋青 (#0891b2)</option>
+                                <option value="#881337">栗褐色 (#881337)</option>
+                            </select>
+                        </div>
+
+                        <!-- 未中獎字體顏色 (15選擇) -->
+                        <div>
+                            <label class="block text-xs font-medium mb-1 text-slate-300">4. 未中獎 (銘謝惠顧) 字體顏色 (15種選擇)</label>
+                            <select id="cfg-lose-font-color" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                                <option value="#64748b" selected>酷炫灰 (#64748b)</option>
+                                <option value="#0f172a">曜石黑 (#0f172a)</option>
+                                <option value="#d97706">璀璨金 (#d97706)</option>
+                                <option value="#dc2626">火焰紅 (#dc2626)</option>
+                                <option value="#2563eb">寶石藍 (#2563eb)</option>
+                                <option value="#16a34a">翡翠綠 (#16a34a)</option>
+                                <option value="#7c3aed">紫羅蘭 (#7c3aed)</option>
+                                <option value="#e11d48">玫瑰粉 (#e11d48)</option>
+                                <option value="#78350f">深深棕 (#78350f)</option>
+                                <option value="#065f46">暗綠色 (#065f46)</option>
+                                <option value="#1e3a8a">深藍色 (#1e3a8a)</option>
+                                <option value="#ea580c">鮮橘色 (#ea580c)</option>
+                                <option value="#9333ea">霓虹紫 (#9333ea)</option>
+                                <option value="#0891b2">海洋青 (#0891b2)</option>
+                                <option value="#881337">栗褐色 (#881337)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Google 雲端紀錄 webhook -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-700 space-y-3">
+                    <h3 class="text-sm font-bold text-amber-300 flex items-center">
+                        <i class="fa-brands fa-google-drive mr-2"></i> Google 雲端試算表紀錄整合 (Google Apps Script Webhook)
+                    </h3>
+                    <p class="text-xs text-slate-400">填入 Apps Script Webhook 網址，系統會自動在雲端試算表記錄顧客夾物數、刮開格數與中獎結果。</p>
+                    <input type="text" id="cfg-webhook" placeholder="https://script.google.com/macros/s/..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 font-mono focus:outline-none focus:border-amber-400">
+                </div>
+
+                <!-- 獎項數量設定 -->
+                <div class="space-y-3 pt-2">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-200">大盤中獎獎項清單 (自訂數量與名稱)</label>
+                            <p class="text-xs text-slate-400">系統自動將總格數中剩餘的格子補滿「銘謝惠顧」，並隨機洗牌佈局。</p>
+                        </div>
+                        <button onclick="addPrizeConfigRow()" class="text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 px-3 py-1.5 rounded-lg transition font-medium">
+                            <i class="fa-solid fa-plus mr-1"></i> 新增獎項
+                        </button>
+                    </div>
+                    <div id="prize-config-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        <!-- 動態生成獎項 -->
+                    </div>
+                </div>
+
+                <div class="pt-4 flex flex-wrap gap-3">
+                    <button onclick="saveAndGenerateQRCode()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition shadow-lg flex items-center">
+                        <i class="fa-solid fa-qrcode mr-2"></i> 開啟新一盤活動並更新 QR Code
+                    </button>
+                </div>
+            </div>
+
+            <!-- 機台 QR Code 區 -->
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl flex flex-col md:flex-row items-center gap-6">
+                <div class="bg-white p-3 rounded-xl shadow-inner border" id="qrcode-box">
+                    <div id="qrcode"></div>
+                </div>
+                <div class="flex-1 space-y-3 text-center md:text-left">
+                    <h3 class="text-lg font-bold text-white flex items-center justify-center md:justify-start">
+                        <i class="fa-solid fa-share-nodes text-amber-400 mr-2"></i> 機台專屬固定 QR Code
+                    </h3>
+                    <p class="text-xs text-slate-400">客人掃描此 QR Code 都會進入相同的「活動大盤」，已刮開的格子不會重複刮，直至全盤大獎刮完。</p>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="share-url" readonly class="flex-1 bg-slate-900 border border-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-mono select-all">
+                        <button onclick="copyShareUrl()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-medium text-amber-400 transition">
+                            <i class="fa-solid fa-copy mr-1"></i> 複製連結
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 顧客刮刮樂體驗頁面 ================= -->
+        <section id="customer-view" class="hidden space-y-4">
+            
+            <!-- 大盤全數完成/完刮鎖定視圖 -->
+            <div id="board-finished-view" class="hidden bg-slate-800 p-8 rounded-2xl border border-amber-500/50 text-center space-y-4 max-w-md mx-auto shadow-2xl my-12">
+                <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">本盤刮刮樂活動已圓滿結束！</h2>
+                <p class="text-xs text-slate-300">本大盤所有格子或大獎已被幸運顧客刮完。請關注機台最新活動，向現場人員確認下一盤開盤時間！</p>
+            </div>
+
+            <!-- 正常互動刮區 -->
+            <div id="active-scratch-area" class="space-y-4">
+                <div class="text-center space-y-1">
+                    <h1 id="disp-title" class="text-2xl md:text-3xl font-extrabold text-amber-400">🎁 夾物達人專屬幸運大刮刮樂</h1>
+                    <p class="text-xs md:text-sm text-slate-400">點擊或微刮任意格子即可秒速開獎，全店共用大盤狀態！</p>
+                </div>
+
+                <!-- 狀態資訊面板（新增：中獎率、剩餘獎項） -->
+                <div class="bg-slate-800/90 max-w-4xl mx-auto p-3.5 rounded-xl border border-slate-700 shadow-lg grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-center text-xs md:text-sm">
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">夾出商品</span>
+                        <span class="font-bold text-white text-base" id="disp-caught-count">0</span> <span class="text-[10px] text-slate-400">樣</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">本輪獲得</span>
+                        <span class="font-bold text-amber-400 text-base" id="disp-total-scratches">0</span> <span class="text-[10px] text-slate-400">刮</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">本輪剩餘</span>
+                        <span class="font-bold text-rose-400 text-base" id="disp-remaining-scratches">0</span> <span class="text-[10px] text-slate-400">刮</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-slate-400">大盤未刮</span>
+                        <span class="font-bold text-emerald-400 text-base" id="disp-board-remaining">0</span> <span class="text-[10px] text-slate-400">格</span>
+                    </div>
+                    <!-- 新增 1: 中獎率 (獎項數 / 總格數) -->
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-amber-300 font-medium">✨ 中獎率</span>
+                        <span class="font-bold text-amber-400 text-base" id="disp-win-rate">0%</span>
+                    </div>
+                    <!-- 新增 2: 剩餘獎項 (剩餘未刮開之中獎項目數量) -->
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-700/50">
+                        <span class="block text-[11px] text-emerald-300 font-medium">🎁 剩餘獎項</span>
+                        <span class="font-bold text-emerald-400 text-base" id="disp-remaining-prizes">0</span> <span class="text-[10px] text-slate-400">個</span>
+                    </div>
+                </div>
+
+                <!-- 網格容器 -->
+                <div id="scratch-grid-container" class="grid-layout"></div>
+
+                <div class="text-center pt-2">
+                    <button onclick="simulateReScanSameQR()" class="text-xs text-slate-400 underline hover:text-amber-400 transition">
+                        <i class="fa-solid fa-qrcode mr-1"></i> 模擬再夾物，重新掃描同一個 QR Code
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 夾物數量輸入彈窗 -->
+    <div id="input-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-amber-500/50 p-6 md:p-8 rounded-2xl max-w-sm w-full text-center space-y-5 shadow-2xl">
+            <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                <i class="fa-solid fa-bag-shopping"></i>
+            </div>
+            <div class="space-y-1">
+                <h3 class="text-xl font-bold text-white">歡迎來到刮刮樂專區！</h3>
+                <p class="text-xs text-slate-300">請輸入您剛剛在機台夾出的商品總數量：</p>
+            </div>
+            <div>
+                <input type="number" id="user-input-caught" min="1" max="100" value="1" class="w-full bg-slate-900 border-2 border-amber-500/60 rounded-xl px-4 py-3 text-center text-2xl font-black text-amber-400 focus:outline-none focus:border-amber-400">
+                <p class="text-[11px] text-slate-400 mt-1.5" id="ratio-hint">換算規則：每夾 1 樣可獲得 1 次刮獎機會</p>
+            </div>
+            <button onclick="confirmCaughtItems()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl transition shadow-lg text-base">
+                確認數量，進入大盤刮獎！
+            </button>
+        </div>
+    </div>
+
+    <!-- 本輪結束結算彈窗 -->
+    <div id="result-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-amber-500/50 p-6 md:p-8 rounded-2xl max-w-sm w-full text-center space-y-4 shadow-2xl">
+            <div class="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h3 class="text-xl font-bold text-white">恭喜完成本輪刮獎！</h3>
+            <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-700 text-amber-300 text-xs font-bold space-y-1.5 max-h-48 overflow-y-auto text-left" id="modal-prize-summary">
+                <!-- 填入結果 -->
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">本輪剩餘次數已刮完！若您有繼續夾出商品，請**重新掃描機台 QR Code** 即可繼續刮剩餘大盤格子！</p>
+            <button onclick="closeResultModal()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-xl transition">
+                好的，我知道了
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let appConfig = {
+            boardId: "board_default",
+            title: "🎁 夾物達人專屬幸運大刮刮樂",
+            gridSize: 40,
+            ratio: 1,
+            coatColor: "#94a3b8",      // 刮刮卡漆色
+            bgColor: "#fffbeb",        // 卡片底色
+            winFontColor: "#dc2626",   // 中獎字體顏色
+            loseFontColor: "#64748b",  // 未中獎字體顏色
+            webhookUrl: "",
+            prizesConfig: [
+                { name: "🎉 頭獎：大公仔乙隻", count: 2 },
+                { name: "🎁 二獎：精美盲盒乙個", count: 3 },
+                { name: "🥤 三獎：飲品兌換券", count: 5 }
+            ]
+        };
+
+        let currentBoardState = []; // 各格紀錄 { revealed: bool, prize: str, isWin: bool }
+        let caughtItemsCount = 0;
+        let allowedScratches = 0;
+        let roundScratchedCount = 0;
+        let qrCodeInstance = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadConfigFromURL();
+            initAdminInputs();
+            renderPrizeConfigRows();
+            generateQRCode();
+            checkCustomerState();
+        });
+
+        function switchView(view) {
+            const adminSec = document.getElementById('admin-view');
+            const custSec = document.getElementById('customer-view');
+            const btnAdmin = document.getElementById('btn-view-admin');
+            const btnCust = document.getElementById('btn-view-customer');
+
+            if (view === 'admin') {
+                adminSec.classList.remove('hidden');
+                custSec.classList.add('hidden');
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-amber-500 text-slate-950 font-bold hover:bg-amber-400";
+                btnCust.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-slate-700 text-slate-200 hover:bg-slate-600";
+            } else {
+                adminSec.classList.add('hidden');
+                custSec.classList.remove('hidden');
+                btnCust.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-amber-500 text-slate-950 font-bold hover:bg-amber-400";
+                btnAdmin.className = "px-3 py-1.5 rounded-lg text-sm font-medium transition bg-slate-700 text-slate-200 hover:bg-slate-600";
+                checkCustomerState();
+            }
+        }
+
+        function initAdminInputs() {
+            document.getElementById('cfg-title').value = appConfig.title;
+            document.getElementById('cfg-grid-size').value = appConfig.gridSize;
+            document.getElementById('cfg-ratio').value = appConfig.ratio;
+            document.getElementById('cfg-coat-color').value = appConfig.coatColor;
+            document.getElementById('cfg-bg-color').value = appConfig.bgColor;
+            document.getElementById('cfg-win-font-color').value = appConfig.winFontColor;
+            document.getElementById('cfg-lose-font-color').value = appConfig.loseFontColor;
+            document.getElementById('cfg-webhook').value = appConfig.webhookUrl;
+        }
+
+        function renderPrizeConfigRows() {
+            const list = document.getElementById('prize-config-list');
+            list.innerHTML = '';
+            appConfig.prizesConfig.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = "flex items-center space-x-2 bg-slate-900 p-2 rounded-lg border border-slate-700";
+                row.innerHTML = `
+                    <span class="text-xs text-slate-400 font-mono w-6">#${idx+1}</span>
+                    <input type="text" value="${p.name}" onchange="updatePrizeName(${idx}, this.value)" placeholder="獎項名稱" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-400">
+                    <div class="flex items-center space-x-1">
+                        <span class="text-xs text-slate-400">數量:</span>
+                        <input type="number" min="1" value="${p.count}" onchange="updatePrizeCount(${idx}, this.value)" class="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-amber-400">
+                    </div>
+                    <button onclick="removePrizeConfigRow(${idx})" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function addPrizeConfigRow() {
+            appConfig.prizesConfig.push({ name: "🎁 幸運小獎乙份", count: 2 });
+            renderPrizeConfigRows();
+        }
+
+        function removePrizeConfigRow(idx) {
+            if (appConfig.prizesConfig.length <= 1) return alert("至少需保留一個中獎項目！");
+            appConfig.prizesConfig.splice(idx, 1);
+            renderPrizeConfigRows();
+        }
+
+        function updatePrizeName(idx, val) { appConfig.prizesConfig[idx].name = val; }
+        function updatePrizeCount(idx, val) { appConfig.prizesConfig[idx].count = parseInt(val) || 1; }
+
+        function saveAndGenerateQRCode() {
+            appConfig.title = document.getElementById('cfg-title').value.trim();
+            appConfig.gridSize = parseInt(document.getElementById('cfg-grid-size').value) || 40;
+            appConfig.ratio = parseInt(document.getElementById('cfg-ratio').value) || 1;
+            appConfig.coatColor = document.getElementById('cfg-coat-color').value;
+            appConfig.bgColor = document.getElementById('cfg-bg-color').value;
+            appConfig.winFontColor = document.getElementById('cfg-win-font-color').value;
+            appConfig.loseFontColor = document.getElementById('cfg-lose-font-color').value;
+            appConfig.webhookUrl = document.getElementById('cfg-webhook').value.trim();
+            appConfig.boardId = "board_" + Date.now().toString(36);
+
+            // 清除舊大盤快取
+            localStorage.removeItem('board_state_' + appConfig.boardId);
+            
+            generateQRCode();
+            alert("✅ 新大盤活動與風格設定已儲存！已生成專屬 QR Code。");
+        }
+
+        function generateQRCode() {
+            const payload = { config: appConfig };
+            const encoded = encodeURIComponent(JSON.stringify(payload));
+            const shareUrl = `${window.location.origin}${window.location.pathname}#board=${encoded}`;
+            
+            document.getElementById('share-url').value = shareUrl;
+
+            const qrBox = document.getElementById('qrcode');
+            qrBox.innerHTML = '';
+            qrCodeInstance = new QRCode(qrBox, {
+                text: shareUrl,
+                width: 170,
+                height: 170,
+                colorDark : "#0f172a",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+        }
+
+        function loadConfigFromURL() {
+            if (window.location.hash.startsWith('#board=')) {
+                try {
+                    const raw = window.location.hash.replace('#board=', '');
+                    const parsed = JSON.parse(decodeURIComponent(raw));
+                    if (parsed && parsed.config) {
+                        appConfig = parsed.config;
+                        switchView('customer');
+                        return;
+                    }
+                } catch(e) {
+                    console.error("解析 URL 設定失敗", e);
+                }
+            }
+        }
+
+        function copyShareUrl() {
+            const input = document.getElementById('share-url');
+            input.select();
+            document.execCommand('copy');
+            alert("📋 連結已複製！");
+        }
+
+        function simulateReScanSameQR() {
+            document.getElementById('ratio-hint').innerText = `換算規則：每夾 ${appConfig.ratio} 樣可獲得 1 次刮獎機會`;
+            document.getElementById('input-modal').classList.remove('hidden');
+        }
+
+        function checkCustomerState() {
+            loadOrCreateBoardState();
+
+            const unrevealed = currentBoardState.filter(c => !c.revealed).length;
+            if (unrevealed === 0) {
+                document.getElementById('board-finished-view').classList.remove('hidden');
+                document.getElementById('active-scratch-area').classList.add('hidden');
+                document.getElementById('input-modal').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('board-finished-view').classList.add('hidden');
+            document.getElementById('active-scratch-area').classList.remove('hidden');
+            document.getElementById('ratio-hint').innerText = `換算規則：每夾 ${appConfig.ratio} 樣可獲得 1 次刮獎機會`;
+            document.getElementById('input-modal').classList.remove('hidden');
+        }
+
+        function loadOrCreateBoardState() {
+            const saved = localStorage.getItem('board_state_' + appConfig.boardId);
+            if (saved) {
+                try {
+                    currentBoardState = JSON.parse(saved);
+                    return;
+                } catch(e) {}
+            }
+
+            // 建立全新大盤洗牌
+            let pool = [];
+            appConfig.prizesConfig.forEach(p => {
+                for(let i=0; i<p.count; i++) {
+                    pool.push({ prize: p.name, isWin: true });
+                }
+            });
+            const remainder = appConfig.gridSize - pool.length;
+            for(let i=0; i<remainder; i++) {
+                pool.push({ prize: "銘謝惠顧 🍀", isWin: false });
+            }
+
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+
+            currentBoardState = pool.map(item => ({ revealed: false, prize: item.prize, isWin: item.isWin }));
+            saveBoardState();
+        }
+
+        function saveBoardState() {
+            localStorage.setItem('board_state_' + appConfig.boardId, JSON.stringify(currentBoardState));
+        }
+
+        function confirmCaughtItems() {
+            const val = parseInt(document.getElementById('user-input-caught').value);
+            if (isNaN(val) || val <= 0) return alert("請輸入有效的商品數量！");
+            
+            caughtItemsCount = val;
+            document.getElementById('input-modal').classList.add('hidden');
+
+            initCustomerRound();
+        }
+
+        function initCustomerRound() {
+            document.getElementById('disp-title').innerText = appConfig.title;
+            document.getElementById('disp-caught-count').innerText = caughtItemsCount;
+
+            const unrevealedCount = currentBoardState.filter(c => !c.revealed).length;
+
+            allowedScratches = Math.min(unrevealedCount, Math.floor(caughtItemsCount / appConfig.ratio));
+            if (allowedScratches < 1 && caughtItemsCount > 0 && unrevealedCount > 0) allowedScratches = 1;
+
+            roundScratchedCount = 0;
+            updateStatusDisplays();
+            renderGridBoard();
+        }
+
+        function updateStatusDisplays() {
+            const remainingRound = Math.max(0, allowedScratches - roundScratchedCount);
+            const unrevealedBoard = currentBoardState.filter(c => !c.revealed).length;
+
+            // 計算 1: 中獎率 (總中獎項目數 / 總格數)
+            const totalPrizes = currentBoardState.filter(c => c.isWin).length;
+            const winRate = ((totalPrizes / appConfig.gridSize) * 100).toFixed(1);
+
+            // 計算 2: 剩餘中獎項目 (剩餘未刮開之中獎格數)
+            const remainingPrizes = currentBoardState.filter(c => !c.revealed && c.isWin).length;
+
+            document.getElementById('disp-total-scratches').innerText = allowedScratches;
+            document.getElementById('disp-remaining-scratches').innerText = remainingRound;
+            document.getElementById('disp-board-remaining').innerText = unrevealedBoard;
+            document.getElementById('disp-win-rate').innerText = `${winRate}%`;
+            document.getElementById('disp-remaining-prizes').innerText = remainingPrizes;
+        }
+
+        function renderGridBoard() {
+            const container = document.getElementById('scratch-grid-container');
+            container.innerHTML = '';
+            
+            // 動態根據格數計算排列 Column
+            let cols = 8;
+            if (appConfig.gridSize <= 20) cols = 5;
+            else if (appConfig.gridSize <= 40) cols = 8;
+            else if (appConfig.gridSize <= 80) cols = 10;
+            else if (appConfig.gridSize <= 160) cols = 12;
+            else if (appConfig.gridSize <= 300) cols = 15;
+            else cols = 20;
+
+            container.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+            currentBoardState.forEach((cellData, idx) => {
+                const cell = document.createElement('div');
+                cell.className = 'scratch-cell';
+
+                // 底層：獎項內容（套用設定之背景顏色與中獎/未中獎字體顏色）
+                const prizeLayer = document.createElement('div');
+                prizeLayer.className = 'prize-layer';
+                prizeLayer.style.backgroundColor = appConfig.bgColor || '#fffbeb';
+                prizeLayer.style.color = cellData.isWin ? (appConfig.winFontColor || '#dc2626') : (appConfig.loseFontColor || '#64748b');
+
+                prizeLayer.innerHTML = `<span>${cellData.prize}</span>`;
+                cell.appendChild(prizeLayer);
+
+                if (!cellData.revealed) {
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'canvas-layer';
+                    cell.appendChild(canvas);
+                    setupScratchCanvas(canvas, idx);
+                }
+
+                container.appendChild(cell);
+            });
+        }
+
+        function setupScratchCanvas(canvas, index) {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width || 60;
+            canvas.height = rect.height || 60;
+            const ctx = canvas.getContext('2d');
+
+            // 繪製刮刮卡外漆顏色
+            ctx.fillStyle = appConfig.coatColor || "#94a3b8";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            ctx.font = "bold 10px sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(`#${index+1}`, canvas.width / 2, canvas.height / 2);
+
+            function executeInstantReveal() {
+                if (currentBoardState[index].revealed) return;
+
+                const remainingRound = allowedScratches - roundScratchedCount;
+                if (remainingRound <= 0) {
+                    alert("您本輪的刮卡次數已用完！若重新夾出商品，請重新掃碼進行下一輪。");
+                    return;
+                }
+
+                // 核心改進：只要點擊或刮觸到一點，立即全開露出底下獎項
+                currentBoardState[index].revealed = true;
+                saveBoardState();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                roundScratchedCount++;
+                updateStatusDisplays();
+
+                logToCloudDrive("ScratchCellRevealed", { index: index + 1, prize: currentBoardState[index].prize });
+
+                if (roundScratchedCount >= allowedScratches) {
+                    setTimeout(showResultModal, 350);
+                }
+            }
+
+            // 支援：點擊直接開啟 OR 觸控/拖曳劃到一點即刻瞬間完全揭開 (Instant Reveal)
+            canvas.addEventListener('click', executeInstantReveal);
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                executeInstantReveal();
+            });
+            canvas.addEventListener('mousedown', (e) => {
+                executeInstantReveal();
+            });
+        }
+
+        function showResultModal() {
+            const summaryBox = document.getElementById('modal-prize-summary');
+            summaryBox.innerHTML = '';
+
+            const revealedList = currentBoardState.filter(c => c.revealed);
+            const thisRoundPrizes = revealedList.slice(-roundScratchedCount);
+
+            thisRoundPrizes.forEach((item, idx) => {
+                const d = document.createElement('div');
+                d.className = "flex justify-between items-center py-1 border-b border-slate-800 text-xs";
+                d.innerHTML = `<span>第 ${idx + 1} 刮：</span><span class="font-bold text-amber-300">${item.prize}</span>`;
+                summaryBox.appendChild(d);
+            });
+
+            document.getElementById('result-modal').classList.remove('hidden');
+
+            if (typeof confetti === 'function') {
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+            }
+        }
+
+        function closeResultModal() {
+            document.getElementById('result-modal').classList.add('hidden');
+            
+            const unrevealedBoard = currentBoardState.filter(c => !c.revealed).length;
+            if (unrevealedBoard === 0) {
+                document.getElementById('board-finished-view').classList.remove('hidden');
+                document.getElementById('active-scratch-area').classList.add('hidden');
+            }
+        }
+
+        function logToCloudDrive(actionType, extraData) {
+            if (!appConfig.webhookUrl) return;
+            
+            const payload = {
+                boardId: appConfig.boardId,
+                action: actionType,
+                caughtItems: caughtItemsCount,
+                scratchesAllowed: allowedScratches,
+                timestamp: new Date().toISOString(),
+                data: extraData
+            };
+
+            fetch(appConfig.webhookUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(err => console.log("Cloud log error:", err));
+        }
+    </script>
+</body>
+</html>
